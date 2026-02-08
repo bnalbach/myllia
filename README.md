@@ -36,30 +36,36 @@ w_i\ge0 \text{ for } i = (1,\dots,n) \qquad \sum_{i=1}^{n} w_i = n.
 $$
 
 The weights vector is calculated using t values of the moderated t-statistic (limma package),
+
 $$
 t_i=\frac{\text{estimated effect for gene i}}{\text{moderated standard error for gene i (from eBayes)}}
 $$
 
 with $t=
 (t_1,\dots, t_n) \in\mathbb{R}^n$ for a sinlge pertubation:
+
 $$
-c_i = \min{(|t_i|+0.1, 10)}, \qquad  i=1,...,n. \\
+c_i = \min{(|t_i|+0.1, 10)}, \qquad  i=1,...,n.
 $$
 
 If the perturbation targets gene with index $g \in 1,\dots,n$, set $c_g = 0$. Let
+
 $$
 M = \max_{1\le\text{j}\le\text{n}}{c_i}
 $$
 
 The resulting weight vector is defined as:
+
 $$
 w_i = n\frac{(\frac{c_i}{M}²)}{\sum_{k=1}^{n}(\frac{c_k}{M})²}, \qquad i = 1,...,n.
 $$
 
 Over L pertubations the WMAE ratio score W is then calculated as
+
 $$
 W = \sum_{l=1}^{L}min{(5, \log_{2}{(\frac{WMAE_{l}^{base}}{WMAE_{l}^{pred}})})} 
 $$
+
 where $WMAE_{l}^{base}$ and $WMAE_{l}^{pred}$ are the baseline and model predictions for the l-th pertubation. The threshold 5 is only to protect against outliers.
 
 The baseline prediction is hereby defined as the arithmetic mean of the log fold-change vectors across the 80 training perturbations. Let $x^{i} \in \mathbb{R}^n$ denote the log fold-change vector for training perturbation $j$, for $j = 1, \dots,80$. The baseline prediction vector is
