@@ -16,7 +16,7 @@ Citation :
 **Predicting responses of a human cancer cell line to CRISPR pertubations**
 
 ## Data
-Single-cell RNA-seq of nearly most human cell types.
+Single-cell RNA-seq of most human cell types. Genes are pertubed using CRISPRi, to decrease transcription rates.
 
 ## Evaluation
 *Only slightly adapted from the Competition page.*
@@ -112,4 +112,21 @@ $$
 W\times\max(0, Wcos)
 $$
 
+## Submission
+5127 genes, 120 pertubations (0.5 validation, 0.5 test)
+
 ## Approach
+
+Possible Approaches:
+1. VAE
+2. Transformer
+3. GNN
+
+- build an integated pathway map based on reactome
+- take pertubation --> check all pathways it realates with --> give this as additional feature (one-hot)
+
+### in different dataseets look out for
+- sequence depth, genes, cell types
+
+### External Datasets
+- 
