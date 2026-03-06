@@ -7,11 +7,13 @@ datasets:
   reactome: 
 
 ml:
-  max_seq_len: 2000
-  batch_size: 32
   d_model: 512
   nhead: 8
   dim_feedforward: 2048
   dropout: 0.1
   num_layers: 4
   output_dim: 128
+  max_seq_len: 2000
+  batch_size: 32
+  lr: 0.0001
+  epochs: 20
