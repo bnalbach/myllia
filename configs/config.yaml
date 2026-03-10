@@ -1,7 +1,8 @@
 datasets:
   basedir: /home/data/kaggle_data/myllia/
-  baseline: /home/data/kaggle_data/myllia/training_data_means.csv
-  myllia: /home/data/kaggle_data/myllia/training_cell.h5ad
+  means:        /home/data/kaggle_data/myllia/training_data_means.csv
+  pert_ids_val: /home/data/kaggle_data/myllia/pert_ids_val.csv
+  myllia: /home/data/kaggle_data/myllia/training_cells.h5ad
   vcc: /home/data/single_cell/vcc_2025/adata_Training.h5ad
   replogle: /home/data/single_cell/Replogle_et_al/
   reactome: 
@@ -12,8 +13,8 @@ ml:
   dim_feedforward: 2048
   dropout: 0.1
   num_layers: 4
-  output_dim: 128
-  max_seq_len: 2000
-  batch_size: 32
+  # output_dim: 128
+  # max_seq_len: 2000
+  batch_size: 16
   lr: 0.0001
   epochs: 20

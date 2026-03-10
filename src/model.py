@@ -1,16 +1,18 @@
 import torch
 import torch.nn as nn
 
+
 class GeneTokenizer(nn.Module):
     def __init__(self, n_genes, d_model):
         super().__init__()
-        self.gene_embedding = nn.Embedding(n_genes+1, d_model, padding_idx=0) # +1 for padding token
+        # Each gene gets a learnable identity vector
+        self.gene_embedding = nn.Embedding(n_genes, d_model)
+        # Projects scalar expression value → d_model
         self.expr_projection = nn.Linear(1, d_model)
 
     def forward(self, gene_ids, expr_values):
-        gene_tok = self.gene_embedding(gene_ids)                        # (batch, seq_len, d_model)
-        expr_tok = self.expr_projection(expr_values.unsqueeze(-1))      # (batch, seq_len, d_model)
-
+        gene_tok = self.gene_embedding(gene_ids)                    # (batch, seq, d_model)
+        expr_tok = self.expr_projection(expr_values.unsqueeze(-1))  # (batch, seq, d_model)
         return gene_tok + expr_tok
 
 
@@ -21,9 +23,14 @@ class Model(nn.Module):
         self.n_genes = n_genes
 
         self.tokenizer = GeneTokenizer(n_genes, d_model)
+
+        # Learnable [PERT] token embedding — one per gene
+        # This encodes "this gene was knocked down"
+        self.pert_embedding = nn.Embedding(n_genes + 1, d_model, padding_idx=n_genes)
+
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
-                d_model=config["ml"]["d_model"],
+                d_model=d_model,
                 nhead=config["ml"]["nhead"],
                 dim_feedforward=config["ml"]["dim_feedforward"],
                 dropout=config["ml"]["dropout"],
@@ -31,24 +38,32 @@ class Model(nn.Module):
             ),
             num_layers=config["ml"]["num_layers"]
         )
+
         self.cls_token = nn.Parameter(torch.zeros(1, 1, d_model))
-        self.fc_out = nn.Linear(config["ml"]["d_model"], config["ml"]["output_dim"])
+        self.fc_out = nn.Linear(d_model, n_genes)
 
-    def forward(self, gene_ids, expr_values, padding_mask):
-        batch_size = gene_ids.shape[0]
+    def forward(self, baseline, pert_gene_idx):
+        """
+        baseline:      (batch, n_genes) — expression with perturbed gene zeroed out
+        pert_gene_idx: (batch,)         — index of knocked-down gene
+        """
+        batch_size = baseline.shape[0]
+        gene_ids = torch.arange(self.n_genes, device=baseline.device)
+        gene_ids = gene_ids.unsqueeze(0).expand(batch_size, -1)     # (batch, n_genes)
 
-        x = self.tokenizer(gene_ids, expr_values)                       # (batch, seq_len, d_model)
+        # Tokenize baseline expression
+        x = self.tokenizer(gene_ids, baseline)                       # (batch, n_genes, d_model)
 
-        # prepend CLS token (like BERT)
-        cls = self.cls_token.expand(batch_size, -1, -1)                 # (batch, 1, d_model)
-        x = torch.cat([cls, x], dim=1)                                  # (batch, seq_len+1, d_model)
+        # Add perturbation signal to the knocked-out gene's token
+        pert_tok = self.pert_embedding(pert_gene_idx)                # (batch, d_model)
+        pert_idx = pert_gene_idx.clamp(0)                            # avoid -1 index
+        x[torch.arange(batch_size), pert_idx] += pert_tok            # inject into that gene's position
 
-        cls_mask = torch.zeros(batch_size, 1, dtype=torch.bool, device=padding_mask.device)
-        padding_mask = torch.cat([cls_mask, padding_mask], dim=1)
-        
-        x = self.transformer(x, src_key_padding_mask=padding_mask)      # (batch, seq_len+1, d_model)
-        
-        cls_repr = x[:, 0, :]                                           # (batch, d_model) — CLS token output
-        out = self.fc_out(cls_repr)                                     # (batch, n_genes) — predicted post-perturbation expression
-        return out
+        # Prepend CLS token
+        cls = self.cls_token.expand(batch_size, -1, -1)              # (batch, 1, d_model)
+        x = torch.cat([cls, x], dim=1)                               # (batch, n_genes+1, d_model)
 
+        x = self.transformer(x)                                      # (batch, n_genes+1, d_model)
+
+        cls_repr = x[:, 0, :]                                        # (batch, d_model)
+        return self.fc_out(cls_repr)                                  # (batch, n_genes)

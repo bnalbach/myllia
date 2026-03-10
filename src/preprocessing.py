@@ -1,96 +1,74 @@
-import scanpy as sc
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+import pandas as pd
 import numpy as np
-from scipy.sparse import issparse
+import torch
+from torch.utils.data import Dataset, DataLoader
+import scanpy as sc
+
+
+class PerturbationDataset(Dataset):
+    def __init__(self, deltas, baseline, gene_names, pert_symbols):
+        """
+        deltas:     (n_cells, n_genes) — target delta expressions per cell
+        baseline:   (n_genes,)         — mean unperturbed reference expression 
+        gene_names: list of gene names (length n_genes)
+        """
+        self.baseline = torch.tensor(baseline, dtype=torch.float32)
+        self.deltas = torch.tensor(deltas, dtype=torch.float32)
+        self.gene_names = gene_names
+        self.n_genes = len(gene_names)
+        self.gene_to_idx = {g: i for i, g in enumerate(gene_names)}
+        self.pert_symbols = pert_symbols
+
+    def __len__(self):
+        return len(self.deltas)
+
+    def __getitem__(self, idx):
+        pert_gene = self.pert_symbols[idx]  # e.g. "BRCA1"
+
+        # Zero out the perturbed gene in the baseline input
+        baseline_perturbed = self.baseline.clone()
+        if pert_gene in self.gene_to_idx:
+            baseline_perturbed[self.gene_to_idx[pert_gene]] = 0.0
+
+        return {
+            "baseline": baseline_perturbed,        # (n_genes,) — with knocked-out gene zeroed
+            "pert_gene_idx": torch.tensor(
+                self.gene_to_idx.get(pert_gene, -1), dtype=torch.long
+            ),                                      # index of perturbed gene, -1 if not found
+            "target": self.deltas[idx],             # (n_genes,) — true delta
+        }
+
 
 class Preprocessing:
     def __init__(self, config):
-        self.baseline = config["datasets"]["baseline"]
+        self.means_path = config["datasets"]["means"]
         self.myllia = config["datasets"]["myllia"]
-        self.vcc = config["datasets"]["vcc"]
-        self.reactome = config["datasets"]["reactome"]
-        
-        self.max_seq_len = config["ml"]["max_seq_len"]
         self.batch_size = config["ml"]["batch_size"]
-        return
-    
-    def combine_and_preprocess(self):
-        sc_data = sc.read_h5ad(self.myllia)
 
-        ### ADD BETTER FILTERS
-        sc.pp.filter_cells(sc_data, min_genes=200)
-        sc.pp.filter_genes(sc_data, min_cells=3)
-        
-        ### should already be applied
-        sc.pp.normalize_total(sc_data, target_sum=1e4)
-        sc.pp.log1p(sc_data)
+    def load(self):
+        df = pd.read_csv(self.means_path, index_col="pert_symbol")
 
-        return sc_data
-    
-    def process_vcc_2025(self):
-        vcc = sc.read_h5ad(self.vcc)
+        # Baseline = non-targeting row
+        baseline = df.loc["non-targeting"].values.astype(np.float32)
 
-        return
-    
-    # def create_embedding(self, sc_data):
-    #     ### custom embedding to incooperate pathway info (seperate function)!
-    #     X = torch.tensor(sc_data.X.toarray(), dtype=torch.float32) # (n_cells, n_genes)
-    #     return X
-    
+        adata = sc.read_h5ad(self.myllia)
+
+        # Normalization of UMIs
+        sc.pp.normalize_total(adata, target_sum=1e4)
+        sc.pp.log1p(adata, base=2)
+
+        train_df = adata.to_df()
+        train_obs = adata.obs.copy()
+
+        # Delta = perturbed - baseline
+        deltas = (train_df.values - baseline).astype(np.float32)
+        pert_symbols = train_obs["sgrna_symbol"].to_list()
+        gene_names = train_df.columns.to_list()
+
+        return baseline, deltas, pert_symbols, gene_names
+
     def run_preprocessing(self):
-        sc_data = self.combine_and_preprocess()
-        n_genes = sc_data.n_var
-        dataset = SingleCellDataset(sc_data, max_seq_len=self.max_seq_len)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-        return dataloader, n_genes
-
-
-### ADD HERE: add pathway information in the var df! --> in which pathways is each gene? close interactors/which other proteins does it interact with?
-class SingleCellDataset(Dataset):
-    def __init__(self, sc_data, max_seq_len=2000):
-        self.max_seq_len = max_seq_len
-
-        X = sc_data.X.toarray() if issparse(sc_data.X) else sc_data.X
-        self.expressions = X
-
-        self.perturbations = sc_data.obs["sgrna_symbol"].values  # RENAME when using multiple datasets!
-
-    def __len__(self):
-        return len(self.expressions)
-    
-    def __getitem__(self, idx):
-        expr = self.expressions[idx] # (n_genes,)
-
-        # drop non-expressed genes --> LATER: use normalized counts (drop no change genes)
-        expressed_mask =  expr > 0
-        gene_ids = np.where(expressed_mask)[0]
-        expr_values = expr[expressed_mask]
-
-        # if more too many expressed genes in a cell (too many tokens), sample random subset
-        if len(gene_ids) > self.max_seq_len:
-            # CAN BE IMPROVED
-            chosen = np.random.choice(len(gene_ids), self.max_seq_len, replace=False)
-            gene_ids = gene_ids[chosen]
-            expr_values = expr_values[chosen]
-
-        seq_len = len(gene_ids)
-
-        # pad to max_seq_len
-        padded_gene_ids = np.zeros(self.max_seq_len, dtype=np.int64)
-        padded_expr = np.zeros(self.max_seq_len, dtype=np.float32)
-        padding_mask = np.ones(self.max_seq_len, dtype=bool) # if true, ignore padding
-
-        padded_gene_ids[:seq_len] = gene_ids
-        padded_expr[:seq_len] = expr_values
-        padding_mask[:seq_len] = False
-
-        sample = {
-            "gene_ids": torch.tensor(padded_gene_ids),
-            "expr_values": torch.tensor(padded_expr),
-            "padding_mask": torch.tensor(padding_mask),
-            "perturbation": self.perturbations[idx]
-        }
-
-        return sample
+        baseline, deltas, pert_symbols, gene_names = self.load()
+        dataset = PerturbationDataset(deltas, baseline, gene_names)
+        dataloader = DataLoader(dataset, batch_size=self.config["ml"]["batch_size"], shuffle=True)
+        return dataloader, len(gene_names), pert_symbols, gene_names
