@@ -4,7 +4,9 @@ datasets:
   pert_ids_val: /home/data/kaggle_data/myllia/pert_ids_val.csv
   myllia: /home/data/kaggle_data/myllia/training_cells.h5ad
   vcc: /home/data/single_cell/vcc_2025/adata_Training.h5ad
-  replogle: /home/data/single_cell/Replogle_et_al/
+  jiang_TGFB: /home/data/single_cell/vcc_2025/TGFB_Perturb_seq.h5ad
+  jiang_IFNB: /home/data/single_cell/vcc_2025/IFNB_Perturb_seq.h5ad
+  jiang_IFNG: /home/data/single_cell/vcc_2025/IFNG_Perturb_seq.h5ad
   reactome: 
 
 ml:
