@@ -130,3 +130,20 @@ Possible Approaches:
 
 ### External Datasets
 - 
+
+Preprocessing
+- get different datasets (myllia, vcc, replogle)
+- merge into one big adata object with obs = sgrna_symbol, RNAcount, featurecount, mitocount
+- drop all genes not in the submission &rarr; looses biological complexity, but would otherwise be to expensive
+- if dataset is missing genes, impute them using the mean non-targeting expressions from myllia
+    - *possible TODO: use reactome for educated guess of the expression*
+
+- only use vcc & replogle for training and all myllia as val & test / for fine-tuning?
+
+- train/test split: use 30 perts from myllia.h5ad for test set (and all )
+
+ML
+- goal: learn the expression patterns &rarr; graph based approach? 
+- Transformer based
+
+

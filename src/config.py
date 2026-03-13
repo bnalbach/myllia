@@ -6,13 +6,8 @@ def load_config(path):
         config = yaml.safe_load(f)
 
     datasets = config.get("datasets", {})
-    base = Path(datasets.get("basedir", ""))
 
     for key, value in datasets.items():
-        if key == "basedir":
-            datasets
-        datasets[key] = base / value
-
-    datasets["basedir"] = base
+        datasets[key] = value
 
     return config

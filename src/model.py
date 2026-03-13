@@ -42,17 +42,17 @@ class Model(nn.Module):
         self.cls_token = nn.Parameter(torch.zeros(1, 1, d_model))
         self.fc_out = nn.Linear(d_model, n_genes)
 
-    def forward(self, baseline, pert_gene_idx):
+    def forward(self, expr, pert_gene_idx):
         """
-        baseline:      (batch, n_genes) — expression with perturbed gene zeroed out
+        expr:      (batch, n_genes) — expression with perturbed gene zeroed out
         pert_gene_idx: (batch,)         — index of knocked-down gene
         """
-        batch_size = baseline.shape[0]
-        gene_ids = torch.arange(self.n_genes, device=baseline.device)
+        batch_size = expr.shape[0]
+        gene_ids = torch.arange(self.n_genes, device=expr.device)
         gene_ids = gene_ids.unsqueeze(0).expand(batch_size, -1)     # (batch, n_genes)
 
         # Tokenize baseline expression
-        x = self.tokenizer(gene_ids, baseline)                       # (batch, n_genes, d_model)
+        x = self.tokenizer(gene_ids, expr)                       # (batch, n_genes, d_model)
 
         # Add perturbation signal to the knocked-out gene's token
         pert_tok = self.pert_embedding(pert_gene_idx)                # (batch, d_model)

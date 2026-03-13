@@ -1,12 +1,12 @@
 datasets:
-  basedir: /home/data/kaggle_data/myllia/
-  means:        /home/data/kaggle_data/myllia/training_data_means.csv
+  means: /home/data/kaggle_data/myllia/training_data_means.csv
   pert_ids_val: /home/data/kaggle_data/myllia/pert_ids_val.csv
-  myllia: /home/data/kaggle_data/myllia/training_cells.h5ad
-  vcc: /home/data/single_cell/vcc_2025/adata_Training.h5ad
-  jiang_TGFB: /home/data/single_cell/vcc_2025/TGFB_Perturb_seq.h5ad
-  jiang_IFNB: /home/data/single_cell/vcc_2025/IFNB_Perturb_seq.h5ad
-  jiang_IFNG: /home/data/single_cell/vcc_2025/IFNG_Perturb_seq.h5ad
+  myllia: /home/data/kaggle_data/myllia/myllia.h5ad
+  vcc: /home/data/single_cell/vcc_2025/vcc.h5ad
+  replogle: /home/data/single_cell/Replogle_et_al/replogle.h5ad
+  jiang_TGFB: /home/data/single_cell/Jiang_et_al/TGFB_Perturb_seq.h5ad
+  jiang_IFNB: /home/data/single_cell/Jiang_et_al/IFNB_Perturb_seq.h5ad
+  jiang_IFNG: /home/data/single_cell/Jiang_et_al/IFNG_Perturb_seq.h5ad
   reactome: 
 
 ml:

@@ -25,12 +25,12 @@ def train():
         total_loss = 0
 
         for batch in dataloader:
-            baseline = batch["baseline"].to(device)  # (batch, n_genes)
+            expr = batch["expr"].to(device)  # (batch, n_genes)
             pert_gene_idx = batch["pert_gene_idx"].to(device)  # add this
             target   = batch["target"].to(device)    # (batch, n_genes) — true delta
 
             optimizer.zero_grad()
-            pred = model(baseline, pert_gene_idx)                   # (batch, n_genes) — predicted delta
+            pred = model(expr, pert_gene_idx)                   # (batch, n_genes) — predicted delta
             loss = criterion(pred, target)
             loss.backward()
             optimizer.step()
